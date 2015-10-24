@@ -28,6 +28,7 @@
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
+#include <libgen.h>
 
 #include "tmux.h"
 
@@ -51,6 +52,8 @@ void	 format_cb_window_layout(struct format_tree *, struct format_entry *);
 void	 format_cb_start_command(struct format_tree *, struct format_entry *);
 void	 format_cb_current_command(struct format_tree *, struct format_entry *);
 void	 format_cb_current_path(struct format_tree *, struct format_entry *);
+void	 format_cb_current_short_path(struct format_tree *,
+	     struct format_entry *);
 void	 format_cb_history_bytes(struct format_tree *, struct format_entry *);
 void	 format_cb_pane_tabs(struct format_tree *, struct format_entry *);
 
@@ -403,6 +406,27 @@ format_cb_current_path(struct format_tree *ft, struct format_entry *fe)
 	cwd = osdep_get_cwd(wp->fd);
 	if (cwd != NULL)
 		fe->value = xstrdup(cwd);
+}
+
+/* Callback for pane_current_short_path. */
+void
+format_cb_current_short_path(struct format_tree *ft, struct format_entry *fe)
+{
+	struct window_pane	*wp = ft->wp;
+	char			*cwd;
+	const char		*home;
+
+	if (wp == NULL)
+		return;
+
+	home = find_home();
+	cwd = osdep_get_cwd(wp->fd);
+	if (cwd != NULL) {
+		if (home != NULL && strcmp(home, cwd) == 0)
+			fe->value = xstrdup("~");
+		else
+			fe->value = xstrdup(basename(cwd));
+	}
 }
 
 /* Callback for history_bytes. */
@@ -1064,6 +1088,8 @@ format_defaults_pane(struct format_tree *ft, struct window_pane *wp)
 	format_add_cb(ft, "pane_start_command", format_cb_start_command);
 	format_add_cb(ft, "pane_current_command", format_cb_current_command);
 	format_add_cb(ft, "pane_current_path", format_cb_current_path);
+	format_add_cb(ft, "pane_current_short_path",
+            format_cb_current_short_path);
 
 	format_add(ft, "cursor_x", "%u", wp->base.cx);
 	format_add(ft, "cursor_y", "%u", wp->base.cy);
